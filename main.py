@@ -59,6 +59,8 @@ def main():
                     default='lstm')  # v2 Finland: backbone selectionnable
     ap.add_argument('--no_log1p', action='store_true',
                     help='cible = z-score brut (clip) sans log1p')
+    ap.add_argument('--scaler', choices=['standard', 'minmax'],
+                    default='standard')  # v2 Finland: ablation normalisation
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
     ap.add_argument('--limit_rows', type=int, default=0,
                     help='dry run: garder seulement les N premieres lignes')
@@ -80,7 +82,8 @@ def main():
     gap_hours = max(args.seq_lengths) + max(PREDICTION_HORIZONS)
     use_log1p = not args.no_log1p
     train_df, val_df, test_df, scaler_t = split_and_normalize_data(
-        data, feats, TARGET, gap_hours=gap_hours, use_log1p=use_log1p)
+        data, feats, TARGET, gap_hours=gap_hours, use_log1p=use_log1p,
+        scaler=args.scaler)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device} | features={len(feats)} | horizons={PREDICTION_HORIZONS}")
 

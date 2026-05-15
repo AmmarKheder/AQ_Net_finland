@@ -168,7 +168,7 @@ def load_and_preprocess_data(data_path, traffic_path=None):
 
 
 def split_and_normalize_data(data, features, target, gap_hours=0,
-                             use_log1p=True):
+                             use_log1p=True, scaler='standard'):
     # v2 Finland: split temporel PAR STATION + EMBARGO explicite.
     # gap_hours doit valoir >= seq_length + max_horizon : avec stride=1 les
     # fenetres se chevauchent a 167/168h ; purger une bande de gap_hours
@@ -210,11 +210,12 @@ def split_and_normalize_data(data, features, target, gap_hours=0,
         d.loc[:, target] = np.log1p(c) if use_log1p else c
     print(f"[v2 Finland] target transform = {'log1p' if use_log1p else 'none'}"
           f" (puis z-score)")
-    # v2 Finland: StandardScaler/z-score (sur l'espace log) au lieu de MinMax.
-    # Scalers fit sur le TRAIN uniquement (pas de fuite val/test).
-    from sklearn.preprocessing import StandardScaler
-    scaler_features = StandardScaler()
-    scaler_target = StandardScaler()
+    # v2 Finland: scaler togglable (standard|minmax), fit TRAIN ONLY.
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler
+    _S = MinMaxScaler if scaler == 'minmax' else StandardScaler
+    print(f"[v2 Finland] scaler = {scaler}")
+    scaler_features = _S()
+    scaler_target = _S()
     train_features_norm = scaler_features.fit_transform(train_visible[features].values)
     val_features_norm = scaler_features.transform(val_visible[features].values)
     test_features_norm = scaler_features.transform(test_visible[features].values)
