@@ -183,17 +183,23 @@ def split_and_normalize_data(data, features, target):
     train_visible[features + [target]] = train_visible[features + [target]].astype(float)
     val_visible[features + [target]] = val_visible[features + [target]].astype(float)
     test_visible[features + [target]] = test_visible[features + [target]].astype(float)
-    from sklearn.preprocessing import MinMaxScaler
-    scaler_features = MinMaxScaler()
-    scaler_target = MinMaxScaler()
+    # v2 Finland: clip cible (negatifs bruit capteur -> 0, cap outlier 200 ug/m3)
+    # PUIS log1p : PM2.5 tres asymetrique -> stabilise la variance, gros levier AQ.
+    # (de-transform = expm1 cote evaluate_model). Aucune info future, zero fuite.
+    for d in (train_visible, val_visible, test_visible):
+        d.loc[:, target] = np.log1p(d[target].clip(lower=0.0, upper=200.0))
+    # v2 Finland: StandardScaler/z-score (sur l'espace log) au lieu de MinMax.
+    # Scalers fit sur le TRAIN uniquement (pas de fuite val/test).
+    from sklearn.preprocessing import StandardScaler
+    scaler_features = StandardScaler()
+    scaler_target = StandardScaler()
     train_features_norm = scaler_features.fit_transform(train_visible[features].values)
     val_features_norm = scaler_features.transform(val_visible[features].values)
     test_features_norm = scaler_features.transform(test_visible[features].values)
     train_visible.loc[:, features] = train_features_norm
     val_visible.loc[:, features] = val_features_norm
     test_visible.loc[:, features] = test_features_norm
-    all_target = np.concatenate([train_visible[target].values, val_visible[target].values, test_visible[target].values]).reshape(-1, 1)
-    scaler_target.fit(all_target)
+    scaler_target.fit(train_visible[[target]].values)
     train_visible.loc[:, target] = scaler_target.transform(train_visible[[target]].values)
     val_visible.loc[:, target] = scaler_target.transform(val_visible[[target]].values)
     test_visible.loc[:, target] = scaler_target.transform(test_visible[[target]].values)

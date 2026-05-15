@@ -52,7 +52,7 @@ def set_seed(seed=42):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--epochs', type=int, default=50)
-    ap.add_argument('--patience', type=int, default=10)
+    ap.add_argument('--patience', type=int, default=20)  # v2 Finland: +patience
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--stride', type=int, default=6)
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
@@ -98,9 +98,10 @@ def main():
         model.device = device
         criterion = torch.nn.MSELoss()
         optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=5e-3, steps_per_epoch=max(1, len(trl)),
-            epochs=args.epochs)
+        # v2 Finland: Cosine au lieu de OneCycleLR (OneCycle se desynchronise
+        # de l'early-stopping -> LR jamais complete son cycle).
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.epochs)
         model, _, _ = train_model(model, trl, val, criterion, optimizer,
                                   scheduler, num_epochs=args.epochs,
                                   patience=args.patience,

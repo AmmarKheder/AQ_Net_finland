@@ -20,7 +20,7 @@ def _masked_mse_per_h(pred, y, mask):
 
 def train_model(model, train_loader, val_loader, criterion, optimizer,
                 scheduler, num_epochs=50, patience=10,
-                horizon_weights=None, entropy_weight=0.01):
+                horizon_weights=None, entropy_weight=0.0):
     n_h = len(model.horizons)
     if horizon_weights is None:
         horizon_weights = [1.0] * n_h
@@ -114,22 +114,29 @@ def evaluate_model(model, test_loader, criterion, scaler_target,
     ym = np.concatenate(ym).astype(bool)
     ycur = np.concatenate(ycur)
 
-    inv = lambda a: scaler_target.inverse_transform(
-        a.reshape(-1, 1)).reshape(a.shape)
+    # v2 Finland: cible = log1p(PM2.5) z-scoree -> de-transform = expm1(inv_z)
+    inv = lambda a: np.expm1(scaler_target.inverse_transform(
+        a.reshape(-1, 1)).reshape(a.shape))
     yt_r, yp_r = inv(yt), inv(yp)
-    ycur_r = scaler_target.inverse_transform(ycur.reshape(-1, 1)).ravel()
+    ycur_r = inv(ycur)
     yp_r = np.clip(yp_r, 0.0, None)            # v2 Finland: PM2.5 >= 0
 
-    print("  horizon |   RMSE   MAE  |  persistance RMSE")
+    # v2 Finland: R2 par horizon (modele) + R2 persistance pour comparaison
+    print("  horizon |  RMSE   MAE    R2   | persist RMSE  persist R2")
     for hi, h in enumerate(horizons):
         m = ym[:, hi]
         if m.sum() == 0:
             continue
-        e = yp_r[m, hi] - yt_r[m, hi]
+        yt_h = yt_r[m, hi]
+        ss_tot = np.sum((yt_h - yt_h.mean()) ** 2)
+        e = yp_r[m, hi] - yt_h
         rmse = np.sqrt(np.mean(e ** 2)); mae = np.mean(np.abs(e))
-        pe = ycur_r[m] - yt_r[m, hi]               # persistance = valeur courante
+        r2 = 1.0 - np.sum(e ** 2) / ss_tot if ss_tot > 0 else float('nan')
+        pe = ycur_r[m] - yt_h                       # persistance = valeur courante
         prmse = np.sqrt(np.mean(pe ** 2))
-        print(f"   {h:3d}h   | {rmse:6.2f} {mae:5.2f} |  {prmse:6.2f}")
+        pr2 = 1.0 - np.sum(pe ** 2) / ss_tot if ss_tot > 0 else float('nan')
+        print(f"   {h:3d}h   | {rmse:6.2f} {mae:5.2f} {r2:6.3f} |"
+              f"   {prmse:6.2f}    {pr2:6.3f}")
 
     yt_r[~ym] = np.nan
     yp_r[~ym] = np.nan

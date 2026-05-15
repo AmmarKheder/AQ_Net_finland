@@ -1,0 +1,70 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+torch 2.4.1+rocm6.0 | cuda/hip dispo: True
+[v2 Finland] 20 stations train retenues : ['Espoo Leppävaara Läkkisepänkuja', 'Espoo Luukki', 'Harjavalta Kaleva', 'Helsinki Kallio 2', 'Helsinki Mannerheimintie', 'Helsinki Mäkelänkatu', 'Helsinki Vartiokylä Huivipolku', 'Imatra Teppanala', 'Jyväskylä Hannikaisenkatu', 'Kotka Kirjastotalo', 'Kouvola Kankaan Koulu', 'Kuopio Maaherrankatu', 'Kuopio Niirala', 'Kuopio Savilahti KYS', 'Kuopio Tasavallankatu', 'Lappeenranta Pulp', 'Raisio Ihala', 'Tampere Epila 2', 'Vaasa Vesitorni', 'Vantaa Tikkurila Neilikkatie']
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+[v2 Finland] features absentes ignorees: ['traffic_volume', 'mean_speed', 'has_traffic']
+device=cuda | features=29 | horizons=[6, 12, 24, 48]
+
+===== SEQ_LENGTH = 24 =====
+samples: train=102060 val=14783 test=29943
+/pfs/lustrep1/scratch/project_462000640/ammar/aqnet_finland/src/training.py:32: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler_grad = torch.cuda.amp.GradScaler(enabled=use_amp)
+/pfs/lustrep1/scratch/project_462000640/ammar/aqnet_finland/src/training.py:41: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=use_amp):
+Epoch 1/100 - Train 0.9335 - Val 0.8299
+Epoch 2/100 - Train 0.8324 - Val 0.7529
+Epoch 3/100 - Train 0.7677 - Val 0.7037
+Epoch 4/100 - Train 0.7278 - Val 0.6752
+Epoch 5/100 - Train 0.7145 - Val 0.6980
+Epoch 6/100 - Train 0.6985 - Val 0.6872
+Epoch 7/100 - Train 0.6931 - Val 0.6796
+Epoch 8/100 - Train 0.6757 - Val 0.6954
+Epoch 9/100 - Train 0.6617 - Val 0.6974
+Epoch 10/100 - Train 0.6536 - Val 0.6856
+Epoch 11/100 - Train 0.6450 - Val 0.7007
+Epoch 12/100 - Train 0.6311 - Val 0.6914
+Epoch 13/100 - Train 0.6304 - Val 0.6964
+Early stopping after 14 epochs.
+/pfs/lustrep1/scratch/project_462000640/ammar/aqnet_finland/src/training.py:91: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load("best_lstm_attention_model.pth"))
+  horizon |   RMSE   MAE  |  persistance RMSE
+     6h   |   3.41  1.98 |    3.86
+    12h   |   3.80  2.31 |    4.50
+    24h   |   4.03  2.52 |    4.83
+    48h   |   4.33  2.77 |    5.30
+test_loss=0.7787
+
+=== RESULTATS (results_v2_finland.csv) ===
+ seq_length  horizon     rmse      mae     n
+         24        6 3.410095 1.976705 29815
+         24       12 3.803122 2.311044 29779
+         24       24 4.034695 2.524470 29753
+         24       48 4.334193 2.766928 29727
+done Fri May 15 16:39:09 EEST 2026
