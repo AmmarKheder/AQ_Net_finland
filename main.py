@@ -52,7 +52,7 @@ def set_seed(seed=42):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--epochs', type=int, default=50)
-    ap.add_argument('--patience', type=int, default=20)  # v2 Finland: +patience
+    ap.add_argument('--patience', type=int, default=3)   # v2 Finland: overfit des E2
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--stride', type=int, default=6)
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
@@ -94,13 +94,18 @@ def main():
         val = DataLoader(va, batch_size=args.batch_size, shuffle=False, num_workers=4)
         tel = DataLoader(te, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
+        # v2 Finland: capacite reduite (overfit massif des epoch 2) ->
+        # num_layers 3->2, attention_dim_head 128->32, dropout 0.3
         model = LSTMAttentionModel(input_dim=len(feats),
                                    horizons=PREDICTION_HORIZONS,
-                                   hidden_dim=128, attention_heads=2,
-                                   dropout_rate=0.1, residual=True).to(device)
+                                   hidden_dim=128, num_layers=2,
+                                   attention_heads=4, attention_dim_head=32,
+                                   dropout_rate=0.3, residual=True).to(device)
         model.device = device
         criterion = torch.nn.MSELoss()
-        optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
+        # v2 Finland: lr plus bas + weight_decay fort -> anti-overfit (val
+        # decroche des epoch 2 sinon, peu de signal generalisable).
+        optimizer = optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3)
         # v2 Finland: Cosine au lieu de OneCycleLR (OneCycle se desynchronise
         # de l'early-stopping -> LR jamais complete son cycle).
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

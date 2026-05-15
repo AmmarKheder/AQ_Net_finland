@@ -1,0 +1,54 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+torch 2.4.1+rocm6.0 | cuda/hip dispo: True
+[v2 Finland] 20 stations train retenues : ['Espoo Leppävaara Läkkisepänkuja', 'Espoo Luukki', 'Harjavalta Kaleva', 'Helsinki Kallio 2', 'Helsinki Mannerheimintie', 'Helsinki Mäkelänkatu', 'Helsinki Vartiokylä Huivipolku', 'Imatra Teppanala', 'Jyväskylä Hannikaisenkatu', 'Kotka Kirjastotalo', 'Kouvola Kankaan Koulu', 'Kuopio Maaherrankatu', 'Kuopio Niirala', 'Kuopio Savilahti KYS', 'Kuopio Tasavallankatu', 'Lappeenranta Pulp', 'Raisio Ihala', 'Tampere Epila 2', 'Vaasa Vesitorni', 'Vantaa Tikkurila Neilikkatie']
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+/users/khederam/.local/lib/python3.11/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+  return np.nanmean(a, axis, out=out, keepdims=keepdims)
+[v2 Finland] features absentes ignorees: ['traffic_volume', 'mean_speed', 'has_traffic']
+[v2 Finland] split temporel/station + embargo 96h -> train=662850 val=92970 test=187668
+device=cuda | features=29 | horizons=[6, 12, 24, 48]
+
+===== SEQ_LENGTH = 48 =====
+samples: train=583280 val=83649 test=171336
+/pfs/lustrep1/scratch/project_462000640/ammar/aqnet_finland/src/training.py:32: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler_grad = torch.cuda.amp.GradScaler(enabled=use_amp)
+/pfs/lustrep1/scratch/project_462000640/ammar/aqnet_finland/src/training.py:41: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=use_amp):
+Epoch 1/100 - Train 0.7754 - Val 0.6436
+Epoch 2/100 - Train 0.6665 - Val 0.6377
+Epoch 3/100 - Train 0.6166 - Val 0.6720
+Epoch 4/100 - Train 0.5749 - Val 0.6926
+Epoch 5/100 - Train 0.5455 - Val 0.6961
+Epoch 6/100 - Train 0.5269 - Val 0.6990
+Epoch 7/100 - Train 0.4937 - Val 0.7095
+Epoch 8/100 - Train 0.4868 - Val 0.6930
+Epoch 9/100 - Train 0.4587 - Val 0.7147
+Epoch 10/100 - Train 0.4471 - Val 0.7212
+Epoch 11/100 - Train 0.4318 - Val 0.7187
+Epoch 12/100 - Train 0.4168 - Val 0.7297
+slurmstepd: error: *** JOB 18654298 ON nid007955 CANCELLED AT 2026-05-15T18:00:43 ***
