@@ -82,7 +82,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer,
 
 
 def evaluate_model(model, test_loader, criterion, scaler_target,
-                   horizon_weights=None):
+                   horizon_weights=None, use_log1p=True):
     """
     v2 Finland: renvoie (test_loss, y_true, y_pred) en unites reelles,
     shape (N, n_horizons), NaN ou la verite-terrain manque.
@@ -114,9 +114,10 @@ def evaluate_model(model, test_loader, criterion, scaler_target,
     ym = np.concatenate(ym).astype(bool)
     ycur = np.concatenate(ycur)
 
-    # v2 Finland: cible = log1p(PM2.5) z-scoree -> de-transform = expm1(inv_z)
-    inv = lambda a: np.expm1(scaler_target.inverse_transform(
-        a.reshape(-1, 1)).reshape(a.shape))
+    # v2 Finland: de-transform = inverse z-score, puis expm1 si log1p utilise
+    def inv(a):
+        z = scaler_target.inverse_transform(a.reshape(-1, 1)).reshape(a.shape)
+        return np.expm1(z) if use_log1p else z
     yt_r, yp_r = inv(yt), inv(yp)
     ycur_r = inv(ycur)
     yp_r = np.clip(yp_r, 0.0, None)            # v2 Finland: PM2.5 >= 0

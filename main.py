@@ -57,6 +57,8 @@ def main():
     ap.add_argument('--stride', type=int, default=6)
     ap.add_argument('--model', choices=['lstm', 'itransformer'],
                     default='lstm')  # v2 Finland: backbone selectionnable
+    ap.add_argument('--no_log1p', action='store_true',
+                    help='cible = z-score brut (clip) sans log1p')
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
     ap.add_argument('--limit_rows', type=int, default=0,
                     help='dry run: garder seulement les N premieres lignes')
@@ -76,8 +78,9 @@ def main():
     # v2 Finland: embargo = max(seq) + max(horizon) pour bloquer toute
     # fuite par chevauchement de fenetres (stride=1) entre train/val/test.
     gap_hours = max(args.seq_lengths) + max(PREDICTION_HORIZONS)
+    use_log1p = not args.no_log1p
     train_df, val_df, test_df, scaler_t = split_and_normalize_data(
-        data, feats, TARGET, gap_hours=gap_hours)
+        data, feats, TARGET, gap_hours=gap_hours, use_log1p=use_log1p)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device} | features={len(feats)} | horizons={PREDICTION_HORIZONS}")
 
@@ -123,7 +126,8 @@ def main():
                                   patience=args.patience,
                                   horizon_weights=HORIZON_WEIGHTS)
         test_loss, yt, yp = evaluate_model(model, tel, criterion, scaler_t,
-                                           horizon_weights=HORIZON_WEIGHTS)
+                                           horizon_weights=HORIZON_WEIGHTS,
+                                           use_log1p=use_log1p)
         for hi, h in enumerate(PREDICTION_HORIZONS):
             m = ~np.isnan(yt[:, hi])
             if m.sum() == 0:

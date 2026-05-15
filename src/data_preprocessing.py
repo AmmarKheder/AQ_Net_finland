@@ -167,7 +167,8 @@ def load_and_preprocess_data(data_path, traffic_path=None):
     return data
 
 
-def split_and_normalize_data(data, features, target, gap_hours=0):
+def split_and_normalize_data(data, features, target, gap_hours=0,
+                             use_log1p=True):
     # v2 Finland: split temporel PAR STATION + EMBARGO explicite.
     # gap_hours doit valoir >= seq_length + max_horizon : avec stride=1 les
     # fenetres se chevauchent a 167/168h ; purger une bande de gap_hours
@@ -205,7 +206,10 @@ def split_and_normalize_data(data, features, target, gap_hours=0):
     # PUIS log1p : PM2.5 tres asymetrique -> stabilise la variance, gros levier AQ.
     # (de-transform = expm1 cote evaluate_model). Aucune info future, zero fuite.
     for d in (train_visible, val_visible, test_visible):
-        d.loc[:, target] = np.log1p(d[target].clip(lower=0.0, upper=200.0))
+        c = d[target].clip(lower=0.0, upper=200.0)
+        d.loc[:, target] = np.log1p(c) if use_log1p else c
+    print(f"[v2 Finland] target transform = {'log1p' if use_log1p else 'none'}"
+          f" (puis z-score)")
     # v2 Finland: StandardScaler/z-score (sur l'espace log) au lieu de MinMax.
     # Scalers fit sur le TRAIN uniquement (pas de fuite val/test).
     from sklearn.preprocessing import StandardScaler

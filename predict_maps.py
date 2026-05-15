@@ -13,6 +13,8 @@ from torch.utils.data import DataLoader
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 random.seed(42); np.random.seed(42); torch.manual_seed(42)
 from src.data_preprocessing import load_and_preprocess_data, split_and_normalize_data
@@ -84,19 +86,32 @@ def main():
             y_true=("y_true", "mean"), y_pred=("y_pred", "mean")).reset_index()
         vmax = max(st.y_true.max(), st.y_pred.max())
         vmin = min(st.y_true.min(), st.y_pred.min())
-        fig, ax = plt.subplots(1, 2, figsize=(15, 8),
-                               sharex=True, sharey=True)
+        proj = ccrs.PlateCarree()
+        fig, ax = plt.subplots(1, 2, figsize=(15, 9),
+                               subplot_kw={"projection": proj})
         for k, (col, lab) in enumerate([("y_true", "Observé"),
                                         ("y_pred", f"Prédit +{HMAP}h")]):
-            scd = ax[k].scatter(st.lon, st.lat, c=st[col], cmap=CMAP,
-                                vmin=vmin, vmax=vmax, s=260,
-                                edgecolor="k", linewidth=0.6)
+            a = ax[k]
+            a.set_extent([19, 32, 59.3, 70.2], crs=proj)   # Finlande
+            a.add_feature(cfeature.OCEAN.with_scale("10m"),
+                          facecolor="#dce8f2")
+            a.add_feature(cfeature.LAND.with_scale("10m"),
+                          facecolor="#f3f1ea")
+            a.add_feature(cfeature.LAKES.with_scale("10m"),
+                          facecolor="#dce8f2", edgecolor="none")
+            a.add_feature(cfeature.COASTLINE.with_scale("10m"),
+                          linewidth=0.5)
+            a.add_feature(cfeature.BORDERS.with_scale("10m"),
+                          linewidth=0.5, edgecolor="gray")
+            scd = a.scatter(st.lon, st.lat, c=st[col], cmap=CMAP,
+                            vmin=vmin, vmax=vmax, s=300, zorder=5,
+                            edgecolor="k", linewidth=0.7, transform=proj)
             for _, r in st.iterrows():
-                ax[k].annotate(f"{r[col]:.0f}", (r.lon, r.lat),
-                               fontsize=7, ha="center", va="center")
-            ax[k].set_title(f"{lab}", fontsize=13)
-            ax[k].set_xlabel("Longitude"); ax[k].set_ylabel("Latitude")
-            ax[k].grid(alpha=0.25)
+                a.annotate(f"{r[col]:.0f}", (r.lon, r.lat), zorder=6,
+                           fontsize=7, ha="center", va="center")
+            gl = a.gridlines(draw_labels=True, alpha=0.25)
+            gl.top_labels = gl.right_labels = False
+            a.set_title(lab, fontsize=13)
         cb = fig.colorbar(scd, ax=ax, fraction=0.025, pad=0.02)
         cb.set_label("PM2.5 (µg/m³)")
         fig.suptitle(f"Finlande — épisode {dd.date()}  "
