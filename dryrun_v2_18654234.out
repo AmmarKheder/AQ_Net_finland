@@ -1,0 +1,5 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+torch 2.4.1+rocm6.0 | cuda/hip dispo: True
+slurmstepd: error: *** JOB 18654234 ON nid005161 CANCELLED AT 2026-05-15T17:43:18 ***
