@@ -121,8 +121,13 @@ def evaluate_model(model, test_loader, criterion, scaler_target,
     ycur_r = inv(ycur)
     yp_r = np.clip(yp_r, 0.0, None)            # v2 Finland: PM2.5 >= 0
 
-    # v2 Finland: R2 par horizon (modele) + R2 persistance pour comparaison
-    print("  horizon |  RMSE   MAE    R2   | persist RMSE  persist R2")
+    # v2 Finland: r (Pearson) en metrique principale + R2 conserve (reviewers)
+    def _r(a, b):
+        if len(a) < 2 or a.std() == 0 or b.std() == 0:
+            return float('nan')
+        return float(np.corrcoef(a, b)[0, 1])
+
+    print("  horizon |  RMSE   MAE     r      R2   | persist r   persist R2")
     for hi, h in enumerate(horizons):
         m = ym[:, hi]
         if m.sum() == 0:
@@ -131,12 +136,13 @@ def evaluate_model(model, test_loader, criterion, scaler_target,
         ss_tot = np.sum((yt_h - yt_h.mean()) ** 2)
         e = yp_r[m, hi] - yt_h
         rmse = np.sqrt(np.mean(e ** 2)); mae = np.mean(np.abs(e))
+        r = _r(yp_r[m, hi], yt_h)
         r2 = 1.0 - np.sum(e ** 2) / ss_tot if ss_tot > 0 else float('nan')
-        pe = ycur_r[m] - yt_h                       # persistance = valeur courante
-        prmse = np.sqrt(np.mean(pe ** 2))
+        pr = _r(ycur_r[m], yt_h)                     # persistance = valeur courante
+        pe = ycur_r[m] - yt_h
         pr2 = 1.0 - np.sum(pe ** 2) / ss_tot if ss_tot > 0 else float('nan')
-        print(f"   {h:3d}h   | {rmse:6.2f} {mae:5.2f} {r2:6.3f} |"
-              f"   {prmse:6.2f}    {pr2:6.3f}")
+        print(f"   {h:3d}h   | {rmse:6.2f} {mae:5.2f} {r:6.3f} {r2:6.3f} |"
+              f"   {pr:6.3f}    {pr2:6.3f}")
 
     yt_r[~ym] = np.nan
     yp_r[~ym] = np.nan
