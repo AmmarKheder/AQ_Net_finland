@@ -36,20 +36,20 @@ def interpolate_feature(k, original_pts, query_pts, original_feat):
     interpolated_feat = torch.sum(knn_feat * weights.unsqueeze(1), dim=-1)
     return interpolated_feat
 
-def knn_prediction(data, test_loader, model, scaler_target, seq_length, prediction_horizon):
+def knn_prediction(data, test_loader, model, scaler_target, seq_length, prediction_horizons):
+    # v2 Finland: prediction_horizons est une LISTE; modele residuel multi-horizon
     model.eval()
+    n_h = len(prediction_horizons)
     all_predictions = []
     all_station_ids = []
     with torch.no_grad():
-        for X_batch, y_batch, batch_dates, batch_station_ids, _ in test_loader:
-            X_batch = X_batch.to(model.device)
-            outputs, _ = model(X_batch)
-            outputs = outputs.squeeze()
+        for x, y, pm25_cur, mask, dates, station_ids, _ in test_loader:
+            x = x.to(model.device); pm25_cur = pm25_cur.to(model.device)
+            outputs, _ = model(x, pm25_cur)               # (B, n_h)
             if outputs.ndim == 1:
                 outputs = outputs.unsqueeze(0)
-            outputs_np = outputs.cpu().detach().numpy()
-            all_predictions.append(outputs_np)
-            all_station_ids.extend(batch_station_ids)
+            all_predictions.append(outputs.cpu().detach().numpy())
+            all_station_ids.extend([int(s) for s in station_ids])
     predictions_norm = np.concatenate(all_predictions, axis=0)
     num_samples, horizon = predictions_norm.shape
     predictions_denorm = scaler_target.inverse_transform(predictions_norm.reshape(-1, 1))
@@ -64,12 +64,12 @@ def knn_prediction(data, test_loader, model, scaler_target, seq_length, predicti
     visible_grouped['station_id'] = visible_grouped['station_id'].astype(int)
     df_agg['station_id'] = df_agg['station_id'].astype(int)
     visible_grouped = visible_grouped.merge(df_agg, on='station_id', how='left')
-    prediction_cols = list(range(prediction_horizon))
+    prediction_cols = list(range(n_h))
     visible_grouped['PM2.5_pred'] = visible_grouped[prediction_cols].apply(lambda row: row.tolist(), axis=1)
     visible_grouped = visible_grouped.drop(columns=prediction_cols)
     visible_grouped['visibility'] = 'visible'
     hidden_data = data[data['visibility'] == 'hidden'].copy()
-    hidden_grouped = hidden_data.sort_values(by='date').groupby(['longitude', 'latitude', 'z'])['PM2.5 (μg/m3)'].apply(lambda s: s.values[:prediction_horizon] if len(s) >= prediction_horizon else np.nan).reset_index()
+    hidden_grouped = hidden_data.sort_values(by='date').groupby(['longitude', 'latitude', 'z'])['PM2.5 (μg/m3)'].apply(lambda s: s.values[:n_h] if len(s) >= n_h else np.nan).reset_index()
     coord_columns = ['longitude', 'latitude', 'z']
     visible_coords = torch.tensor(visible_grouped[coord_columns].values, dtype=torch.float32).unsqueeze(0)
     visible_preds = torch.tensor(np.stack(visible_grouped['PM2.5_pred'].values), dtype=torch.float32).unsqueeze(0)

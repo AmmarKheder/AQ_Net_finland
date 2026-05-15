@@ -1,13 +1,19 @@
----
-
-### main.py
-
-```python
 #!/usr/bin/env python3
 """
 Copyright (c) Ammar Kheder
 Licensed under the MIT License.
+
+v2 Finland: prediction PM2.5 residuelle multi-horizon (6/12/24/48 h).
 """
+
+import os
+import random
+import argparse
+import numpy as np
+import pandas as pd
+import torch
+import torch.optim as optim
+from torch.utils.data import DataLoader
 
 from src.data_preprocessing import load_and_preprocess_data, split_and_normalize_data
 from src.dataset import AirQualityDataset
@@ -15,39 +21,109 @@ from src.model import LSTMAttentionModel
 from src.training import train_model, evaluate_model
 from src.knn_interpolation import knn_prediction
 
-import torch
-from torch.utils.data import DataLoader
+# v2 Finland: chemins data LUMI
+DATA_PATH = '/scratch/project_462000640/ammar/finland_data/finland_2019_2024.csv'
+TRAFFIC_PATH = '/scratch/project_462000640/ammar/finland_data/finland_traffic_2019_2024.csv'
+
+SEQ_LENGTHS = [336, 72, 48, 24]                 # boucle multi-window
+PREDICTION_HORIZONS = [6, 12, 24, 48]           # v2 Finland: multi-horizon
+HORIZON_WEIGHTS = [1.0, 0.7, 0.5, 0.3]          # v2 Finland: loss ponderee
+TARGET = 'PM2.5 (μg/m3)'
+
+# v2 Finland: features modele (raw coords/calendrier exclus, distances encodent le spatial)
+FEATURES = [
+    'pm10', 'no2', 'no', 'aqi',
+    'era5_temp', 'era5_rh', 'era5_wind', 'era5_pressure',
+    'hour_sin', 'hour_cos', 'month_sin', 'month_cos',
+    'day_of_week_sin', 'day_of_week_cos',
+    'hdd', 'stagnation', 'hdd_rolling_24h', 'hdd_rolling_72h',
+    'is_heating_season', 'is_road_dust_season', 'is_newyear', 'is_juhannus',
+    'pm25_lag_1', 'pm25_lag_24', 'pm25_roll_24',
+    'min_distance', 'mean_distance', 'max_distance', 'std_distance',
+    'traffic_volume', 'mean_speed', 'has_traffic',
+]
+
+
+def set_seed(seed=42):
+    random.seed(seed); np.random.seed(seed)
+    torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+
 
 def main():
-    data_path = 'data/sorted_air_quality_data_with_regions.csv'
-    data = load_and_preprocess_data(data_path)
-    features = ['CO (mg/m3)', 'NO2 (μg/m3)', 'O3 (μg/m3)', 'PM10 (μg/m3)',
-                'SO2 (μg/m3)', 'hour_sin', 'hour_cos', 'month_sin', 'month_cos',
-                'day_of_week_sin', 'day_of_week_cos', 'min_distance', 'mean_distance',
-                'max_distance', 'std_distance']
-    target = 'PM2.5 (μg/m3)'
-    train_visible, val_visible, test_visible, scaler_target = split_and_normalize_data(data, features, target)
-    seq_length = 336
-    prediction_horizon = 168
-    train_dataset = AirQualityDataset(train_visible, features, target, seq_length, prediction_horizon)
-    val_dataset = AirQualityDataset(val_visible, features, target, seq_length, prediction_horizon)
-    test_dataset = AirQualityDataset(test_visible, features, target, seq_length, prediction_horizon)
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=4)
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--epochs', type=int, default=50)
+    ap.add_argument('--patience', type=int, default=10)
+    ap.add_argument('--batch_size', type=int, default=64)
+    ap.add_argument('--stride', type=int, default=6)
+    ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
+    ap.add_argument('--limit_rows', type=int, default=0,
+                    help='dry run: garder seulement les N premieres lignes')
+    args = ap.parse_args()
+    set_seed(42)
+
+    tp = TRAFFIC_PATH if os.path.exists(TRAFFIC_PATH) else None
+    data = load_and_preprocess_data(DATA_PATH, traffic_path=tp)
+    feats = [f for f in FEATURES if f in data.columns]
+    missing = [f for f in FEATURES if f not in data.columns]
+    if missing:
+        print(f"[v2 Finland] features absentes ignorees: {missing}")
+    if args.limit_rows:
+        data = data.groupby('station_name').head(
+            args.limit_rows // max(1, data['station_name'].nunique())).copy()
+
+    train_df, val_df, test_df, scaler_t = split_and_normalize_data(
+        data, feats, TARGET)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = LSTMAttentionModel(input_dim=len(features), hidden_dim=128, attention_heads=2, dropout_rate=0.1)
-    model.to(device)
-    model.device = device  # assign device attribute for training functions
-    import torch.optim as optim
-    criterion = torch.nn.MSELoss()
-    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=len(train_loader), epochs=50)
-    model, train_losses, val_losses = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs=50, patience=10)
-    test_loss, y_true_denorm, y_pred_denorm = evaluate_model(model, test_loader, criterion, scaler_target)
-    print("Test Loss:", test_loss)
-    all_predictions_df = knn_prediction(data, test_loader, model, scaler_target, seq_length, prediction_horizon)
-    print(all_predictions_df.head())
+    print(f"device={device} | features={len(feats)} | horizons={PREDICTION_HORIZONS}")
+
+    results = []
+    for seq_len in args.seq_lengths:
+        print(f"\n===== SEQ_LENGTH = {seq_len} =====")
+        ds_kw = dict(features=feats, target=TARGET, seq_length=seq_len,
+                     prediction_horizons=PREDICTION_HORIZONS, stride=args.stride)
+        tr = AirQualityDataset(train_df, **ds_kw)
+        va = AirQualityDataset(val_df, **ds_kw)
+        te = AirQualityDataset(test_df, **ds_kw)
+        print(f"samples: train={len(tr)} val={len(va)} test={len(te)}")
+        if len(tr) == 0 or len(va) == 0 or len(te) == 0:
+            print("  -> pas assez de fenetres contigues, skip"); continue
+        trl = DataLoader(tr, batch_size=args.batch_size, shuffle=True, num_workers=4)
+        val = DataLoader(va, batch_size=args.batch_size, shuffle=False, num_workers=4)
+        tel = DataLoader(te, batch_size=args.batch_size, shuffle=False, num_workers=4)
+
+        model = LSTMAttentionModel(input_dim=len(feats),
+                                   horizons=PREDICTION_HORIZONS,
+                                   hidden_dim=128, attention_heads=2,
+                                   dropout_rate=0.1, residual=True).to(device)
+        model.device = device
+        criterion = torch.nn.MSELoss()
+        optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=5e-3, steps_per_epoch=max(1, len(trl)),
+            epochs=args.epochs)
+        model, _, _ = train_model(model, trl, val, criterion, optimizer,
+                                  scheduler, num_epochs=args.epochs,
+                                  patience=args.patience,
+                                  horizon_weights=HORIZON_WEIGHTS)
+        test_loss, yt, yp = evaluate_model(model, tel, criterion, scaler_t,
+                                           horizon_weights=HORIZON_WEIGHTS)
+        for hi, h in enumerate(PREDICTION_HORIZONS):
+            m = ~np.isnan(yt[:, hi])
+            if m.sum() == 0:
+                continue
+            e = yp[m, hi] - yt[m, hi]
+            results.append(dict(seq_length=seq_len, horizon=h,
+                                rmse=float(np.sqrt(np.mean(e ** 2))),
+                                mae=float(np.mean(np.abs(e))),
+                                n=int(m.sum())))
+        print(f"test_loss={test_loss:.4f}")
+
+    if results:
+        out = pd.DataFrame(results)
+        out.to_csv("results_v2_finland.csv", index=False)
+        print("\n=== RESULTATS (results_v2_finland.csv) ===")
+        print(out.to_string(index=False))
+
 
 if __name__ == "__main__":
     main()

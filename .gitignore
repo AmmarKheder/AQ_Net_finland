@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+best_lstm_attention_model.pth
+results_v2_finland.csv
+aqnet_v2_*.out
