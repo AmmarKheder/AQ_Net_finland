@@ -167,7 +167,12 @@ def load_and_preprocess_data(data_path, traffic_path=None):
     return data
 
 
-def split_and_normalize_data(data, features, target):
+def split_and_normalize_data(data, features, target, gap_hours=0):
+    # v2 Finland: split temporel PAR STATION + EMBARGO explicite.
+    # gap_hours doit valoir >= seq_length + max_horizon : avec stride=1 les
+    # fenetres se chevauchent a 167/168h ; purger une bande de gap_hours
+    # apres chaque coupe garantit qu'AUCUNE fenetre val/test ne partage de
+    # timestamp (input OU cible) avec une fenetre du bloc precedent.
     station_ids = data.groupby(['longitude', 'latitude']).ngroups
     hidden_ratio = 0.1
     import numpy as np
@@ -175,11 +180,24 @@ def split_and_normalize_data(data, features, target):
     hidden_ids = np.random.choice(range(station_ids), size=int(hidden_ratio * station_ids), replace=False)
     data['visibility'] = data.groupby(['longitude', 'latitude']).ngroup().apply(lambda x: 'hidden' if x in hidden_ids else 'visible')
     visible_data = data[data['visibility'] == 'visible'].copy()
-    train_size = int(0.7 * len(visible_data))
-    val_size = int(0.1 * len(visible_data))
-    train_visible = visible_data.iloc[:train_size].copy()
-    val_visible = visible_data.iloc[train_size:train_size + val_size].copy()
-    test_visible = visible_data.iloc[train_size + val_size:].copy()
+    gap = pd.Timedelta(hours=int(gap_hours))
+    tr_p, va_p, te_p = [], [], []
+    for _, g in visible_data.groupby(['longitude', 'latitude']):
+        g = g.sort_values('date')
+        n = len(g)
+        if n < 10:
+            tr_p.append(g); continue
+        cut1 = g['date'].iloc[int(0.70 * n)]
+        cut2 = g['date'].iloc[int(0.80 * n)]
+        tr_p.append(g[g['date'] < cut1])
+        va_p.append(g[(g['date'] >= cut1 + gap) & (g['date'] < cut2)])
+        te_p.append(g[g['date'] >= cut2 + gap])
+    train_visible = pd.concat(tr_p).copy()
+    val_visible = pd.concat(va_p).copy() if va_p else visible_data.iloc[:0].copy()
+    test_visible = pd.concat(te_p).copy() if te_p else visible_data.iloc[:0].copy()
+    print(f"[v2 Finland] split temporel/station + embargo {int(gap_hours)}h "
+          f"-> train={len(train_visible)} val={len(val_visible)} "
+          f"test={len(test_visible)}")
     train_visible[features + [target]] = train_visible[features + [target]].astype(float)
     val_visible[features + [target]] = val_visible[features + [target]].astype(float)
     test_visible[features + [target]] = test_visible[features + [target]].astype(float)

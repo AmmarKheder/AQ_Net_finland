@@ -71,8 +71,11 @@ def main():
         data = data.groupby('station_name').head(
             args.limit_rows // max(1, data['station_name'].nunique())).copy()
 
+    # v2 Finland: embargo = max(seq) + max(horizon) pour bloquer toute
+    # fuite par chevauchement de fenetres (stride=1) entre train/val/test.
+    gap_hours = max(args.seq_lengths) + max(PREDICTION_HORIZONS)
     train_df, val_df, test_df, scaler_t = split_and_normalize_data(
-        data, feats, TARGET)
+        data, feats, TARGET, gap_hours=gap_hours)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device} | features={len(feats)} | horizons={PREDICTION_HORIZONS}")
 
