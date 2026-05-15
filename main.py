@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from src.data_preprocessing import load_and_preprocess_data, split_and_normalize_data
 from src.dataset import AirQualityDataset
-from src.model import LSTMAttentionModel
+from src.model import LSTMAttentionModel, iTransformerModel
 from src.training import train_model, evaluate_model
 from src.knn_interpolation import knn_prediction
 
@@ -55,6 +55,8 @@ def main():
     ap.add_argument('--patience', type=int, default=3)   # v2 Finland: overfit des E2
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--stride', type=int, default=6)
+    ap.add_argument('--model', choices=['lstm', 'itransformer'],
+                    default='lstm')  # v2 Finland: backbone selectionnable
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
     ap.add_argument('--limit_rows', type=int, default=0,
                     help='dry run: garder seulement les N premieres lignes')
@@ -96,11 +98,17 @@ def main():
 
         # v2 Finland: capacite reduite (overfit massif des epoch 2) ->
         # num_layers 3->2, attention_dim_head 128->32, dropout 0.3
-        model = LSTMAttentionModel(input_dim=len(feats),
-                                   horizons=PREDICTION_HORIZONS,
-                                   hidden_dim=128, num_layers=2,
-                                   attention_heads=4, attention_dim_head=32,
-                                   dropout_rate=0.3, residual=True).to(device)
+        if args.model == 'itransformer':
+            model = iTransformerModel(input_dim=len(feats), seq_length=seq_len,
+                                      horizons=PREDICTION_HORIZONS, d_model=64,
+                                      depth=2, heads=4, dropout=0.3,
+                                      residual=True).to(device)
+        else:
+            model = LSTMAttentionModel(input_dim=len(feats),
+                                       horizons=PREDICTION_HORIZONS,
+                                       hidden_dim=128, num_layers=2,
+                                       attention_heads=4, attention_dim_head=32,
+                                       dropout_rate=0.3, residual=True).to(device)
         model.device = device
         criterion = torch.nn.MSELoss()
         # v2 Finland: lr plus bas + weight_decay fort -> anti-overfit (val

@@ -37,6 +37,67 @@ class MultiHeadAttention(nn.Module):
         return self.norm(out), attn
 
 
+# v2 Finland: variante iTransformer (ICLR 2024) - les VARIABLES deviennent
+# des tokens (serie de chaque feature -> 1 token), l'attention modelise les
+# correlations inter-variables. Meme signature/residuel que le LSTM (drop-in).
+class _VarSelfAttn(nn.Module):
+    def __init__(self, dim, heads=4, dropout=0.3):
+        super().__init__()
+        self.h = heads
+        self.dk = dim // heads
+        self.scale = self.dk ** -0.5
+        self.qkv = nn.Linear(dim, dim * 3, bias=False)
+        self.proj = nn.Linear(dim, dim)
+        self.drop = nn.Dropout(dropout)
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, x):                       # x: (B, n_tokens, dim)
+        b, n, d = x.shape
+        q, k, v = (t.view(b, n, self.h, self.dk).transpose(1, 2)
+                   for t in self.qkv(x).chunk(3, dim=-1))
+        att = torch.softmax((q * self.scale) @ k.transpose(-2, -1), dim=-1)
+        o = (att @ v).transpose(1, 2).contiguous().view(b, n, d)
+        return self.norm(x + self.drop(self.proj(o))), att
+
+
+class iTransformerModel(nn.Module):
+    def __init__(self, input_dim, seq_length, horizons=(6, 12, 24, 48),
+                 d_model=64, depth=2, heads=4, dropout=0.3, residual=True):
+        super().__init__()
+        self.horizons = list(horizons)
+        self.residual = residual
+        # serie temporelle d'UNE variable (longueur seq) -> 1 token
+        self.embed = nn.Linear(seq_length, d_model)
+        self.in_drop = nn.Dropout(dropout)
+        self.blocks = nn.ModuleList(
+            [_VarSelfAttn(d_model, heads, dropout) for _ in range(depth)])
+        self.ffns = nn.ModuleList([nn.Sequential(
+            nn.Linear(d_model, d_model * 2), nn.GELU(),
+            nn.Dropout(dropout), nn.Linear(d_model * 2, d_model))
+            for _ in range(depth)])
+        self.fnorm = nn.ModuleList(
+            [nn.LayerNorm(d_model) for _ in range(depth)])
+        self.heads = nn.ModuleList(
+            [nn.Linear(d_model, 1) for _ in self.horizons])
+        for hd in self.heads:
+            nn.init.normal_(hd.weight, mean=0.0, std=0.01)
+            nn.init.zeros_(hd.bias)
+
+    def forward(self, x, pm25_current):
+        # x: (B, L, F) -> (B, F, L) -> tokens variables (B, F, d_model)
+        t = self.in_drop(self.embed(x.transpose(1, 2)))
+        att = None
+        for blk, ffn, nm in zip(self.blocks, self.ffns, self.fnorm):
+            t, att = blk(t)
+            t = nm(t + ffn(t))
+        feats = t.mean(dim=1)                    # pool sur les variables
+        deltas = torch.stack(
+            [hd(feats).squeeze(-1) for hd in self.heads], dim=1)
+        if self.residual:
+            return pm25_current.unsqueeze(1) + deltas, att
+        return deltas, att
+
+
 class LSTMAttentionModel(nn.Module):
     """
     v2 Finland : backbone LSTM + Multi-Head Attention INCHANGE.
