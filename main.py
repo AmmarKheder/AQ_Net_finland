@@ -61,6 +61,10 @@ def main():
                     help='cible = z-score brut (clip) sans log1p')
     ap.add_argument('--scaler', choices=['standard', 'minmax'],
                     default='standard')  # v2 Finland: ablation normalisation
+    ap.add_argument('--hotspot_alpha', type=float, default=0.0,
+                    help='cran_pm: upweight pics (0=off, ~2.0 actif)')
+    ap.add_argument('--under_penalty', type=float, default=1.0,
+                    help='cran_pm: penalite sous-estimation (1=off, ~2.0 actif)')
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
     ap.add_argument('--limit_rows', type=int, default=0,
                     help='dry run: garder seulement les N premieres lignes')
@@ -127,7 +131,9 @@ def main():
         model, _, _ = train_model(model, trl, val, criterion, optimizer,
                                   scheduler, num_epochs=args.epochs,
                                   patience=args.patience,
-                                  horizon_weights=HORIZON_WEIGHTS)
+                                  horizon_weights=HORIZON_WEIGHTS,
+                                  hotspot_alpha=args.hotspot_alpha,
+                                  under_penalty=args.under_penalty)
         test_loss, yt, yp = evaluate_model(model, tel, criterion, scaler_t,
                                            horizon_weights=HORIZON_WEIGHTS,
                                            use_log1p=use_log1p)

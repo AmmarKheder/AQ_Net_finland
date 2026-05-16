@@ -11,16 +11,28 @@ import torch
 import torch.nn as nn
 
 
-def _masked_mse_per_h(pred, y, mask):
-    # v2 Finland: MSE par horizon en ignorant les cibles manquantes (mask=0)
-    se = (pred - y) ** 2 * mask
-    denom = mask.sum(dim=0).clamp(min=1.0)          # garde le graphe connecte
-    return se.sum(dim=0) / denom                    # (n_horizons,)
+def _masked_mse_per_h(pred, y, mask, hotspot_alpha=0.0, hotspot_thr=0.5,
+                      hotspot_maxw=4.0, under_penalty=1.0):
+    # v2 Finland: MSE/horizon masquee. Reprend la strategie cran_pm pour
+    # les pics : (1) hotspot weighting (upweight les fortes valeurs),
+    # (2) penalite asymetrique de sous-estimation (pred<y puni + fort).
+    # y est en espace z-score(log1p) -> seuil/echelle en z (mean~0, std~1).
+    w = mask.clone()
+    if hotspot_alpha > 0:
+        excess = (y - hotspot_thr).clamp(min=0.0, max=hotspot_maxw)
+        w = w * (1.0 + hotspot_alpha * excess)
+    if under_penalty > 1.0:
+        under = (pred < y).float()                   # 1 si sous-estimation
+        w = w * (1.0 + (under_penalty - 1.0) * under)
+    se = (pred - y) ** 2 * w
+    denom = w.sum(dim=0).clamp(min=1.0)              # garde le graphe connecte
+    return se.sum(dim=0) / denom                     # (n_horizons,)
 
 
 def train_model(model, train_loader, val_loader, criterion, optimizer,
                 scheduler, num_epochs=50, patience=10,
-                horizon_weights=None, entropy_weight=0.0):
+                horizon_weights=None, entropy_weight=0.0,
+                hotspot_alpha=0.0, under_penalty=1.0):
     n_h = len(model.horizons)
     if horizon_weights is None:
         horizon_weights = [1.0] * n_h
@@ -40,7 +52,11 @@ def train_model(model, train_loader, val_loader, criterion, optimizer,
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=use_amp):
                 pred, attn = model(x, pm25_cur)
-                loss_per_h = _masked_mse_per_h(pred, y, mask)
+                # train: loss ponderee pics (cran_pm) ; val: loss plate
+                # (selection modele sur objectif non biaise)
+                loss_per_h = _masked_mse_per_h(
+                    pred, y, mask, hotspot_alpha=hotspot_alpha,
+                    under_penalty=under_penalty)
                 loss = (loss_per_h * w).sum() / w.sum()
                 if entropy_weight:
                     ent = -torch.sum(attn * torch.log(attn + 1e-10), dim=-1)
