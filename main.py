@@ -50,6 +50,7 @@ def set_seed(seed=42):
 
 
 def main():
+    global PREDICTION_HORIZONS  # v2 Finland: --horizons rebind le global
     ap = argparse.ArgumentParser()
     ap.add_argument('--epochs', type=int, default=50)
     ap.add_argument('--patience', type=int, default=3)   # v2 Finland: overfit des E2
