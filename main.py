@@ -66,10 +66,13 @@ def main():
     ap.add_argument('--under_penalty', type=float, default=1.0,
                     help='cran_pm: penalite sous-estimation (1=off, ~2.0 actif)')
     ap.add_argument('--seq_lengths', type=int, nargs='+', default=SEQ_LENGTHS)
+    ap.add_argument('--horizons', type=int, nargs='+',
+                    default=PREDICTION_HORIZONS)  # v2 Finland: horizons configurables
     ap.add_argument('--limit_rows', type=int, default=0,
                     help='dry run: garder seulement les N premieres lignes')
     args = ap.parse_args()
     set_seed(42)
+    PREDICTION_HORIZONS = list(args.horizons)  # rebind local pour tout main()
 
     tp = TRAFFIC_PATH if os.path.exists(TRAFFIC_PATH) else None
     data = load_and_preprocess_data(DATA_PATH, traffic_path=tp)
