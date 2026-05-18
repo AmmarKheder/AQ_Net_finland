@@ -18,7 +18,7 @@ mkdir -p $MIOPEN_USER_DB_PATH
 
 cd /scratch/project_462000640/ammar/aqnet_finland
 source /scratch/project_462000640/ammar/aq_net2/venv_pytorch_rocm/bin/activate
-python3 -c "import torch; print('torch', torch.__version__, '| cuda/hip dispo:', torch.cuda.is_available())"
-# v2 Finland: seq=48 stride=1, 100 ep, log1p+zscore+embargo, past-only (dev-g)
-python3 -u main.py --epochs 100 --seq_lengths 48 --stride 6 --batch_size 128
+# v2 Finland: horizons COURTS [1,3,6,12] - r presentable pour la these MSc
+python3 -u main.py --horizons 1 3 6 12 --epochs 100 \
+        --seq_lengths 48 --stride 6 --batch_size 128
 echo "done $(date)"
