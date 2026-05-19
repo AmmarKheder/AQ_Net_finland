@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from src.data_preprocessing import load_and_preprocess_data, split_and_normalize_data
 from src.dataset import AirQualityDataset
-from src.model import LSTMAttentionModel, iTransformerModel
+from src.model import LSTMAttentionModel, iTransformerModel, PatchTSTModel
 from src.training import train_model, evaluate_model
 from src.knn_interpolation import knn_prediction
 
@@ -56,7 +56,7 @@ def main():
     ap.add_argument('--patience', type=int, default=3)   # v2 Finland: overfit des E2
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--stride', type=int, default=6)
-    ap.add_argument('--model', choices=['lstm', 'itransformer'],
+    ap.add_argument('--model', choices=['lstm', 'itransformer', 'patchtst'],
                     default='lstm')  # v2 Finland: backbone selectionnable
     ap.add_argument('--no_log1p', action='store_true',
                     help='cible = z-score brut (clip) sans log1p')
@@ -117,6 +117,11 @@ def main():
                                       horizons=PREDICTION_HORIZONS, d_model=64,
                                       depth=2, heads=4, dropout=0.3,
                                       residual=True).to(device)
+        elif args.model == 'patchtst':
+            model = PatchTSTModel(input_dim=len(feats), seq_length=seq_len,
+                                  horizons=PREDICTION_HORIZONS, patch_len=16,
+                                  stride=8, d_model=64, depth=2, heads=4,
+                                  dropout=0.3, residual=True).to(device)
         else:
             model = LSTMAttentionModel(input_dim=len(feats),
                                        horizons=PREDICTION_HORIZONS,

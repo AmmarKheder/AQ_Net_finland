@@ -1,82 +1,58 @@
-<h1 align="center">🌫️ AQ-Net</h1>
-<h3 align="center">Deep Spatio-Temporal Neural Network for Air Quality Reanalysis</h3>
+# PM2.5 multi-horizon forecasting — Finland
 
-<p align="center">
-  <strong>Accepted at SCIA 2025</strong> • <a href="https://arxiv.org/abs/2502.11941">arXiv:2502.11941</a> • <a href="img/poster%20SCIA%202025V.pdf">Poster (PDF)</a>
-</p>
+Prévision résiduelle multi-horizon du PM2.5 par station en Finlande
+(données FMI + trafic Fintraffic), 2019–2024. Mémoire de M.Sc.
 
-<p align="center">
-  <a href="img/poster%20SCIA%202025V.pdf">
-    <img src="img/posterSCIA2025V.png" alt="Poster AQ-Net" width="70%">
-  </a>
-</p>
+➡️ **Résultats, méthodologie et ablations complets : [`RESULTS_v2_finland.md`](RESULTS_v2_finland.md)**
 
----
+## Résumé
 
-## 🚀 Why AQ-Net?
+- **Données** : FMI Open Data (qualité de l'air + météo) + Fintraffic/digitraffic
+  (trafic), 20 stations finlandaises, horaire, 2019-01-01 → 2024-12-31, UTC.
+- **Modèle** : prédiction **résiduelle** `pred(t+h) = PM2.5(t) + Δ_h`,
+  multi-horizon (6/12/24/48 h, et variante courte 1/3/6/12 h), backbone
+  sélectionnable (LSTM+attention, iTransformer, PatchTST).
+- **Rigueur** : split temporel **par station + embargo** (zéro fuite vérifiée),
+  découpage gap-aware, normalisation fit train-only, setup *past-only*
+  (aucune feature future).
+- **Résultat clé** : bat la persistance à tous les horizons (le skill grandit
+  avec l'horizon) ; chiffres absolus présentables à court terme
+  (1 h r≈0.92, 3 h r≈0.79). 8 ablations confirment le plafond de
+  prévisibilité du régime air-propre.
 
-> "Predicting pollution where no sensors dare to go" — by combining deep learning with geospatial interpolation.
+## Structure
 
-Cities around the world suffer from **partial or uneven sensor coverage**. AQ-Net bridges this gap using:
-- 📈 LSTM & Attention for **temporal learning**
-- 🗺 Neural kNN for **spatial interpolation**
-- 🌀 Cyclic Encoding for **continuous time awareness**
+```
+main.py                  entrainement multi-horizon (--model, --horizons, ...)
+src/
+  data_preprocessing.py  chargement FMI + merge trafic, features, split+embargo
+  dataset.py             fenetres gap-aware, residuel, masque par horizon
+  model.py               LSTMAttention / iTransformer / PatchTST (residuels)
+  training.py            loss MSE masquee ponderee, metriques r/R2/persistance
+  knn_interpolation.py   interpolation spatiale stations cachees
+predict_maps.py          cartes Finlande (cartopy, RdYlBu_r) sur episodes
+predict_plot.py          diagnostics par station (series + scatter)
+slurm/*.sbatch           jobs LUMI (modele final + ablations)
+maps_v2/  plots_v2/       figures du memoire
+RESULTS_v2_finland.md    resultats + ablations + limites + perspectives
+```
 
----
+## Données
 
-## 🌍 Visualizing Pollution Across China
+Non versionnées (volumineuses). Reproduites par les scripts de
+téléchargement (sur le cluster) : `finland_2019_2024.csv` (FMI AQ+météo)
+et `finland_traffic_2019_2024.csv` (Fintraffic). Chemins dans `main.py`.
 
-<p align="center">
-  <img src="img/mapc.png" width="49%">
-  <img src="img/mapC.gif" width="49%">
-</p>
-
-This view highlights pollution hotspots, learned relationships between stations, and the ability to reanalyze data at **unmonitored locations**.
-
----
-
-## 🧠 Core Ideas
-
-### ⏳ 1. Time-aware Encoding
-- LSTM + Multi-Head Attention to capture long-term dependencies.
-- Cyclic Encoding to project discrete time into continuous space.
-
-### 🌐 2. Spatial Interpolation
-- A learnable neural kNN module maps temporal features to spatial gaps.
-
-### 🧪 3. Real-world Evaluation
-- Trained on 2013–2017 data in Northern China
-- Robust across **short-term (6–24h)** and **long-term (2–7 days)** windows
-
----
-
-## 🧬 Architecture Diagram
-
-<p align="center">
-  <img src="img/Artboard11.jpg" width="80%">
-</p>
-
----
-
-## 📊 Results Summary
-
-- Compared to LSTM, Linear Regression, and PatchTST
-- **Significant improvement** in:
-  - MAE
-  - RMSE
-  - R²
-- Generalizes well to **hidden stations**
-
-<p align="center">
-  <img src="img/mapB.png" width="70%">
-</p>
-
----
-
-## 🛠️ Installation
+## Reproduire (LUMI)
 
 ```bash
-git clone https://github.com/AmmarKheder/AQ-Net.git
-cd AQ-Net
-pip install -r requirements.txt
-python main.py
+sbatch slurm/dryrun_v2.sbatch        # modele final LSTM (6/12/24/48 h)
+sbatch slurm/dryrun_short.sbatch     # horizons courts [1,3,6,12]
+sbatch slurm/dryrun_itr.sbatch       # ablation iTransformer
+sbatch slurm/dryrun_patchtst.sbatch  # ablation PatchTST
+python3 predict_maps.py              # cartes episodes
+python3 predict_plot.py              # diagnostics par station
+```
+
+`requirements.txt` : pandas, numpy, scipy, scikit-learn, matplotlib, torch,
+einops (+ pyarrow, cartopy pour les figures).

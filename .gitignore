@@ -1,10 +1,11 @@
 __pycache__/
 *.pyc
+.DS_Store
+*.out
+*.err
 best_lstm_attention_model.pth
 results_v2_finland.csv
 predictions_*.csv
-metrics_per_station_v2.csv
-*_v2_*.out
-dryrun_*_*.out
-aqnet_*_*.out
-plots_v2/
+metrics_*.csv
+finland_data/
+*.zip

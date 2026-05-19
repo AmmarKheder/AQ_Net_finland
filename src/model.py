@@ -8,7 +8,64 @@ v2 Finland: prediction RESIDUELLE (delta) multi-horizon.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from einops import rearrange, repeat
+
+
+class PatchTSTModel(nn.Module):
+    """
+    Adaptation de PatchTST (Nie et al., ICLR 2023) : channel-independent,
+    chaque serie de variable est decoupee en PATCHES, transformer sur les
+    patches (poids partages entre canaux). Meme signature/residuel (drop-in).
+    Cible PM2.5 hors variables d'entree -> readout = pool canaux -> horizons.
+    """
+
+    def __init__(self, input_dim, seq_length, horizons=(6, 12, 24, 48),
+                 patch_len=16, stride=8, d_model=64, depth=2, heads=4,
+                 d_ff=128, dropout=0.3, residual=True):
+        super().__init__()
+        self.horizons = list(horizons)
+        self.residual = residual
+        self.C = input_dim
+        # padding pour couvrir toute la serie
+        n_patch = max(1, (seq_length - patch_len) // stride + 1)
+        if (n_patch - 1) * stride + patch_len < seq_length:
+            n_patch += 1
+        self.patch_len, self.stride, self.n_patch = patch_len, stride, n_patch
+        self.pad = (n_patch - 1) * stride + patch_len - seq_length
+        self.embed = nn.Linear(patch_len, d_model)
+        self.pos = nn.Parameter(torch.zeros(1, n_patch, d_model))
+        nn.init.normal_(self.pos, std=0.02)
+        self.in_drop = nn.Dropout(dropout)
+        enc = nn.TransformerEncoderLayer(
+            d_model, heads, dim_feedforward=d_ff, dropout=dropout,
+            activation="gelu", batch_first=True, norm_first=True)
+        self.encoder = nn.TransformerEncoder(enc, num_layers=depth)
+        self.head = nn.Linear(d_model * n_patch, d_model)
+        self.heads = nn.ModuleList(
+            [nn.Linear(d_model, 1) for _ in self.horizons])
+        for hd in self.heads:
+            nn.init.normal_(hd.weight, mean=0.0, std=0.01)
+            nn.init.zeros_(hd.bias)
+
+    def forward(self, x, pm25_current):
+        # x: (B, L, C) -> channel-independent: (B*C, L)
+        B, L, C = x.shape
+        z = x.permute(0, 2, 1).reshape(B * C, L)
+        if self.pad > 0:
+            z = F.pad(z, (0, self.pad), mode="replicate")
+        # patches: (B*C, n_patch, patch_len)
+        patches = z.unfold(dimension=1, size=self.patch_len,
+                           step=self.stride)
+        t = self.in_drop(self.embed(patches) + self.pos)   # (B*C, n_patch, d)
+        t = self.encoder(t)                                 # (B*C, n_patch, d)
+        feat = self.head(t.reshape(B * C, -1))              # (B*C, d)
+        feat = feat.reshape(B, C, -1).mean(dim=1)           # pool canaux (B, d)
+        deltas = torch.stack(
+            [hd(feat).squeeze(-1) for hd in self.heads], dim=1)
+        if self.residual:
+            return pm25_current.unsqueeze(1) + deltas, None
+        return deltas, None
 
 
 class MultiHeadAttention(nn.Module):
