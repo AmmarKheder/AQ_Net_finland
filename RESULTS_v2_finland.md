@@ -63,11 +63,12 @@ R² absolu (plafonné par le régime air-propre).
 | + trafic (32 feat) | 0.645 | ~nul (bruit) |
 | iTransformer (simplifié) | 0.380 | pire |
 | iTransformer fidèle (RevIN) | 0.352 | pire (RevIN retire le niveau, néfaste en résiduel) |
+| PatchTST (patches, channel-indep.) | 0.636 | ≈ LSTM à 6h, légèrement - sur 12-48h |
 | sans log1p (z-score brut) | 0.629 | neutre / léger - |
 | MinMax au lieu de z-score | 0.603 | collapse vers persistance (signal écrasé) |
 | loss anti-pics cran_pm (hotspot+asym) | 0.603 | nettement pire (biais sans signal) |
 
-→ 8 confirmations indépendantes : **architecture/loss/normalisation/features ne déplacent
+→ 9 confirmations indépendantes : **architecture/loss/normalisation/features ne déplacent
 pas le R²**. Le goulot est l'information dans la donnée (air propre finlandais : moy
 ~5 µg/m³, 23 % ≤ 2 µg/m³, autocorrélation qui s'effondre, persistance R² < 0 dès 12 h).
 
